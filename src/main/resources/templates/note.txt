@@ -1,0 +1,163 @@
+Types of advice:
+
+    Before advice: Advice that executes before a join point, but which does not have the ability to prevent execution flow proceeding to the join point (unless it throws an exception).
+    After returning advice: Advice to be executed after a join point completes normally: for example, if a method returns without throwing an exception.
+    After throwing advice: Advice to be executed if a method exits by throwing an exception.
+    After (finally) advice: Advice to be executed regardless of the means by which a join point exits (normal or exceptional return).
+    Around advice: Advice that surrounds a join point such as a method invocation. This is the most powerful kind of advice. Around advice can perform custom behavior before and after the method invocation. It is also responsible for choosing whether to proceed to the join point or to shortcut the advised method execution by returning its own return value or throwing an exception.
+
+Around advice is the most general kind of advice. Since Spring AOP, like AspectJ, provides a full range of advice types, we recommend that you use the least powerful advice type that can implement the required behavior. For example, if you need only to update a cache with the return value of a method, you are better off implementing an after returning advice than an around advice, although an around advice can accomplish the same thing. Using the most specific advice type provides a simpler programming model with less potential for errors. For example, you do not need to invoke the proceed() method on the JoinPoint used for around advice, and hence cannot fail to invoke it.
+
+/**
+     * A join point is in the web layer if the method is defined
+     * in a type in the com.xyz.someapp.web package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.someapp.web..*)")
+    public void inWebLayer() {}
+
+    /**
+     * A join point is in the service layer if the method is defined
+     * in a type in the com.xyz.someapp.service package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.someapp.service..*)")
+    public void inServiceLayer() {}
+
+    /**
+     * A join point is in the data access layer if the method is defined
+     * in a type in the com.xyz.someapp.dao package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.someapp.dao..*)")
+    public void inDataAccessLayer() {}
+
+    /**
+     * A business service is the execution of any method defined on a service
+     * interface. This definition assumes that interfaces are placed in the
+     * "service" package, and that implementation types are in sub-packages.
+     *
+     * If you group service interfaces by functional area (for example,
+     * in packages com.xyz.someapp.abc.service and com.xyz.someapp.def.service) then
+     * the pointcut expression "execution(* com.xyz.someapp..service.*.*(..))"
+     * could be used instead.
+     *
+     * Alternatively, you can write the expression using the 'bean'
+     * PCD, like so "bean(*Service)". (This assumes that you have
+     * named your Spring service beans in a consistent fashion.)
+     */
+    @Pointcut("execution(* com.xyz.someapp..service.*.*(..))")
+    public void businessService() {}
+
+    /**
+     * A data access operation is the execution of any method defined on a
+     * dao interface. This definition assumes that interfaces are placed in the
+     * "dao" package, and that implementation types are in sub-packages.
+     */
+    @Pointcut("execution(* com.xyz.someapp.dao.*.*(..))")
+    public void dataAccessOperation() {}
+
+Examples
+
+Spring AOP users are likely to use the execution pointcut designator the most often. The format of an execution expression is:
+
+execution(modifiers-pattern? ret-type-pattern declaring-type-pattern?name-pattern(param-pattern)
+            throws-pattern?)
+
+All parts except the returning type pattern (ret-type-pattern in the snippet above), name pattern, and parameters pattern are optional. The returning type pattern determines what the return type of the method must be in order for a join point to be matched. Most frequently you will use * as the returning type pattern, which matches any return type. A fully-qualified type name will match only when the method returns the given type. The name pattern matches the method name. You can use the * wildcard as all or part of a name pattern. If specifying a declaring type pattern then include a trailing . to join it to the name pattern component. The parameters pattern is slightly more complex: () matches a method that takes no parameters, whereas (..) matches any number of parameters (zero or more). The pattern (*) matches a method taking one parameter of any type, (*,String) matches a method taking two parameters, the first can be of any type, the second must be a String. Consult the Language Semantics section of the AspectJ Programming Guide for more information.
+
+Some examples of common pointcut expressions are given below.
+
+    the execution of any public method:
+
+execution(public * *(..))
+
+    the execution of any method with a name beginning with "set":
+
+execution(* set*(..))
+
+    the execution of any method defined by the AccountService interface:
+
+execution(* com.xyz.service.AccountService.*(..))
+
+    the execution of any method defined in the service package:
+
+execution(* com.xyz.service.*.*(..))
+
+    the execution of any method defined in the service package or a sub-package:
+
+execution(* com.xyz.service..*.*(..))
+
+    any join point (method execution only in Spring AOP) within the service package:
+
+within(com.xyz.service.*)
+
+    any join point (method execution only in Spring AOP) within the service package or a sub-package:
+
+within(com.xyz.service..*)
+
+    any join point (method execution only in Spring AOP) where the proxy implements the AccountService interface:
+
+this(com.xyz.service.AccountService)
+
+[Note]
+
+'this' is more commonly used in a binding form :- see the following section on advice for how to make the proxy object available in the advice body.
+
+    any join point (method execution only in Spring AOP) where the target object implements the AccountService interface:
+
+target(com.xyz.service.AccountService)
+
+[Note]
+
+'target' is more commonly used in a binding form :- see the following section on advice for how to make the target object available in the advice body.
+
+    any join point (method execution only in Spring AOP) which takes a single parameter, and where the argument passed at runtime is Serializable:
+
+args(java.io.Serializable)
+
+[Note]
+
+'args' is more commonly used in a binding form :- see the following section on advice for how to make the method arguments available in the advice body.
+
+Note that the pointcut given in this example is different to execution(* *(java.io.Serializable)): the args version matches if the argument passed at runtime is Serializable, the execution version matches if the method signature declares a single parameter of type Serializable.
+
+    any join point (method execution only in Spring AOP) where the target object has an @Transactional annotation:
+
+@target(org.springframework.transaction.annotation.Transactional)
+
+[Note]
+
+'@target' can also be used in a binding form :- see the following section on advice for how to make the annotation object available in the advice body.
+
+    any join point (method execution only in Spring AOP) where the declared type of the target object has an @Transactional annotation:
+
+@within(org.springframework.transaction.annotation.Transactional)
+
+[Note]
+
+'@within' can also be used in a binding form :- see the following section on advice for how to make the annotation object available in the advice body.
+
+    any join point (method execution only in Spring AOP) where the executing method has an @Transactional annotation:
+
+@annotation(org.springframework.transaction.annotation.Transactional)
+
+[Note]
+
+'@annotation' can also be used in a binding form :- see the following section on advice for how to make the annotation object available in the advice body.
+
+    any join point (method execution only in Spring AOP) which takes a single parameter, and where the runtime type of the argument passed has the @Classified annotation:
+
+@args(com.xyz.security.Classified)
+
+[Note]
+
+'@args' can also be used in a binding form :- see the following section on advice for how to make the annotation object(s) available in the advice body.
+
+    any join point (method execution only in Spring AOP) on a Spring bean named tradeService:
+
+bean(tradeService)
+
+    any join point (method execution only in Spring AOP) on Spring beans having names that match the wildcard expression *Service:
+
+bean(*Service)
